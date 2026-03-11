@@ -1,0 +1,203 @@
+variables:
+  cement:
+    description: "Amount of cement in the concrete mix (kg/m³). Crucial for hydration and strength development."
+    type: FLOAT
+    range: [100.0, 600.0]
+    variation_limits: [0.01, 0.3]
+    insignificant_variation: 0.01
+
+  blast_furnace_slag:
+    description: "Amount of blast furnace slag in the concrete mix (kg/m³). Acts as a supplementary cementitious material to improve long-term strength."
+    type: FLOAT
+    range: [0.0, 400.0]
+    variation_limits: [0.01, 0.4]
+    insignificant_variation: 0.01
+
+  fly_ash:
+    description: "Amount of fly ash in the concrete mix (kg/m³). Enhances pozzolanic reactions for gradual strength gain."
+    type: FLOAT
+    range: [0.0, 200.0]
+    variation_limits: [0.01, 0.4]
+    insignificant_variation: 0.01
+
+  water:
+    description: "Amount of water in the concrete mix (kg/m³). Essential for workability and hydration; even small changes can have a large impact on the water–binder ratio."
+    type: FLOAT
+    range: [120.0, 300.0]
+    variation_limits: [0.01, 0.2]
+    insignificant_variation: 0.01
+
+  superplasticizer:
+    description: "Amount of superplasticizer in the concrete mix (kg/m³). Enhances workability and reduces water demand without compromising strength."
+    type: FLOAT
+    range: [0.0, 30.0]
+    variation_limits: [0.01, 0.5]
+    insignificant_variation: 0.01
+
+  coarse_aggregate:
+    description: "Amount of coarse aggregate in the concrete mix (kg/m³). Provides the primary structural skeleton and influences overall density."
+    type: FLOAT
+    range: [800.0, 1200.0]
+    variation_limits: [0.01, 0.24] 
+    insignificant_variation: 0.01
+
+  fine_aggregate:
+    description: "Amount of fine aggregate in the concrete mix (kg/m³). Fills voids between coarse aggregates to improve matrix density."
+    type: FLOAT
+    range: [500.0, 1000.0]
+    variation_limits: [0.01, 0.24]
+    insignificant_variation: 0.01
+
+  age:
+    description: "Age of the concrete (days). Reflects curing time, which directly impacts the progression of strength development."
+    type: INT
+    range: [1, 365]
+    variation_limits: [0.01, 0.2]
+    insignificant_variation: 0.01
+
+  concrete_compressive_strength:
+    description: "Concrete compressive strength (MPa). The primary output metric for assessing mix performance."
+    type: FLOAT
+    range: [2.00, 100.0]
+    # Full range ~98 MPa.
+    # insignificant_variation of 0.03 means changes below 3% (~3 MPa) are within the acceptable margin of measurement noise.
+    insignificant_variation: 0.03
+
+constraints:
+  C_1:
+    description: "Total mass constraint to ensure the concrete has proper density and structural integrity."
+    formula: "1900 <= (cement + blast_furnace_slag + fly_ash + water + superplasticizer + coarse_aggregate + fine_aggregate) <= 2800"
+    
+  C_2:
+    description: "Water-to-binder ratio ensures proper workability and hydration."
+    formula: "0.18 <= (water / (cement + blast_furnace_slag + fly_ash)) <= 0.85"
+    
+  C_3:
+    description: "Aggregate-to-binder ratio balances paste and aggregate, affecting strength and durability."
+    formula: "2.0 <= ((coarse_aggregate + fine_aggregate) / (cement + blast_furnace_slag + fly_ash)) <= 8.0"
+    
+  C_4:
+    description: "Fine aggregate proportion controls workability and segregation risk."
+    formula: "0.2 <= (fine_aggregate / (coarse_aggregate + fine_aggregate)) <= 0.65"
+    
+  C_5:
+    description: "Limits on superplasticizer and water help avoid excessive fluidity and segregation."
+    formula: "(superplasticizer <= 20) or (water <= 250)"
+    
+  C_6:
+    description: "Supplementary cementitious materials (SCMs) should not excessively exceed the cement content."
+    formula: "(blast_furnace_slag + fly_ash) <= (4.0 * cement)"
+    
+  C_7:
+    description: "If water content is high, restrict superplasticizer to minimize segregation."
+    formula: "(water <= 280) or (superplasticizer < 10)"
+    
+  C_8:
+    description: "Ensure a minimum cement content relative to SCMs to maintain binding efficiency."
+    formula: "cement >= 0.2 * (blast_furnace_slag + fly_ash)"
+    
+  C_9:
+    description: "If fine aggregate content is high, the coarse aggregate should be limited to avoid over-filling."
+    formula: "(fine_aggregate <= 750) or (coarse_aggregate <= 1100)"
+    
+  C_10:
+    description: "At least half of the total aggregate should be coarse aggregate for structural integrity."
+    formula: "coarse_aggregate >= 0.5 * (coarse_aggregate + fine_aggregate)"
+    
+  C_11:
+    description: "Low water mixes may need a minimum amount of superplasticizer for adequate workability."
+    formula: "(water >= 150) or (superplasticizer >= 1)"
+
+rules:
+  R_1:
+    description: "Higher cement content improves hydration and promotes the formation of calcium silicate hydrate (CSH), thereby increasing compressive strength."
+    premises: {cement: inc}
+    conclusion: {concrete_compressive_strength: inc}
+  R_2:
+    description: "An increase in water content raises the water-to-cement ratio, which dilutes the paste and reduces compressive strength."
+    premises: {water: inc}
+    conclusion: {concrete_compressive_strength: dec}
+  R_3:
+    description: "Increasing superplasticizer improves workability without adding extra water, enabling a lower water-to-cement ratio and better compaction that enhances strength."
+    premises: {superplasticizer: inc}
+    conclusion: {concrete_compressive_strength: inc}
+  R_4:
+    description: "Longer curing times allow continuous hydration, gradually increasing the formation of strength-providing compounds and thus boosting compressive strength."
+    premises: {age: inc}
+    conclusion: {concrete_compressive_strength: inc}
+  R_5:
+    description: "Raising the content of blast furnace slag stimulates latent hydraulic reactions that form additional CSH, improving long-term strength."
+    premises: {blast_furnace_slag: inc}
+    conclusion: {concrete_compressive_strength: inc}
+  R_6:
+    description: "Increasing fly ash supports pozzolanic reactions over time and should not lead to a decrease in strength, even though its early-age effect is modest."
+    premises: {fly_ash: inc}
+    conclusion: {concrete_compressive_strength: nodec}
+  R_7:
+    description: "While fine aggregates fill voids, too high a proportion can reduce the effective binder content, so increasing fine aggregate should not boost strength."
+    premises: {fine_aggregate: inc}
+    conclusion: {concrete_compressive_strength: noinc}
+  R_8:
+    description: "An excessive increase in coarse aggregate may disrupt the paste continuity, limiting binder coverage and thus not contributing to strength improvement."
+    premises: {coarse_aggregate: inc}
+    conclusion: {concrete_compressive_strength: noinc}
+  R_9:
+    description: "Optimizing the water-to-cement ratio by increasing cement and reducing water yields a denser, stronger concrete matrix."
+    premises: {cement: inc, water: dec}
+    conclusion: {concrete_compressive_strength: inc}
+  R_10:
+    description: "Fly ash develops strength gradually through pozzolanic reactions, so its positive impact is realized when coupled with longer curing periods."
+    premises: {fly_ash: inc, age: inc}
+    conclusion: {concrete_compressive_strength: inc}
+  R_11:
+    description: "If higher superplasticizer usage is accompanied by increased water, the adverse effect of extra water may override benefits, reducing strength."
+    premises: {superplasticizer: inc, water: inc}
+    conclusion: {concrete_compressive_strength: dec}
+  R_12:
+    description: "A disproportionate increase in coarse aggregate with a decrease in fine aggregate can disturb optimal particle packing, so strength should not increase."
+    premises: {coarse_aggregate: inc, fine_aggregate: dec}
+    conclusion: {concrete_compressive_strength: noinc}
+  R_13:
+    description: "Reducing water content while adding superplasticizer and extending curing enhances hydration and compaction, thereby increasing strength."
+    premises: {water: dec, superplasticizer: inc, age: inc}
+    conclusion: {concrete_compressive_strength: inc}
+  R_14:
+    description: "Simultaneously increasing both aggregates while reducing cement results in a lean mix with insufficient binder, leading to lower compressive strength."
+    premises: {coarse_aggregate: inc, fine_aggregate: inc, cement: dec}
+    conclusion: {concrete_compressive_strength: dec}
+  R_15:
+    description: "A combined increase in blast furnace slag and fly ash enhances latent hydraulic and pozzolanic reactions, thereby improving long-term strength."
+    premises: {blast_furnace_slag: inc, fly_ash: inc}
+    conclusion: {concrete_compressive_strength: inc}
+  R_16:
+    description: "An optimized mix with high cement content, reduced water, effective superplasticizer, and extended curing maximizes hydration and compressive strength."
+    premises: {cement: inc, water: dec, superplasticizer: inc, age: inc}
+    conclusion: {concrete_compressive_strength: inc}
+  R_17:
+    description: "Increasing both slag and fly ash while reducing water and allowing longer curing produces a denser matrix that enhances durability and strength."
+    premises: {blast_furnace_slag: inc, fly_ash: inc, water: dec, age: inc}
+    conclusion: {concrete_compressive_strength: inc}
+  R_18:
+    description: "Balancing the binder and aggregates—by increasing cement and coarse aggregate while reducing water and fine aggregate—yields a well-graded, stronger concrete mix."
+    premises: {cement: inc, coarse_aggregate: inc, water: dec, fine_aggregate: dec}
+    conclusion: {concrete_compressive_strength: inc}
+  R_19:
+    description: "A simultaneous increase in all binder components (cement, slag, and fly ash) with reduced water dramatically lowers the water-to-binder ratio, markedly improving strength."
+    premises: {cement: inc, blast_furnace_slag: inc, fly_ash: inc, water: dec}
+    conclusion: {concrete_compressive_strength: inc}
+  R_22:
+    description: "Reducing fine aggregate while increasing cement enhances paste continuity and bonding, resulting in increased strength."
+    premises: {fine_aggregate: dec, cement: inc}
+    conclusion: {concrete_compressive_strength: inc}
+  R_23:
+    description: "For mixes with high supplementary cementitious material content, sufficient curing is critical to fully develop strength through pozzolanic and hydraulic reactions."
+    premises: {blast_furnace_slag: inc, fly_ash: inc, age: inc}
+    conclusion: {concrete_compressive_strength: inc}
+  R_24:
+    description: "For early strength gain, maintaining high cement with low water and effective superplasticizer creates a dense, well-compacted paste."
+    premises: {cement: inc, water: dec, superplasticizer: inc}
+    conclusion: {concrete_compressive_strength: inc}
+  R_25:
+    description: "A holistic optimization that increases cement, coarse aggregate, superplasticizer, and curing time while reducing water and fine aggregate results in enhanced compressive strength and durability."
+    premises: {cement: inc, water: dec, coarse_aggregate: inc, fine_aggregate: dec, superplasticizer: inc, age: inc}
+    conclusion: {concrete_compressive_strength: inc}
